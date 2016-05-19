@@ -2,41 +2,16 @@ import * as path from 'path';
 import * as Q from 'q';
 import * as nopt from 'nopt';
 import { DruidRequestDecorator } from 'plywood-druid-requester';
-import { DataSource, DataSourceJS, Dimension, Measure, LinkViewConfig, LinkViewConfigJS, Customization } from '../common/models/index';
+import { AppSettings, AppSettingsJS, DataSource, DataSourceJS, Dimension, Measure, LinkViewConfig, LinkViewConfigJS, Customization } from '../common/models/index';
 import { dataSourceToYAML } from '../common/utils/yaml-helper/yaml-helper';
 import { DataSourceManager, dataSourceManagerFactory, loadFileSync, properDruidRequesterFactory, dataSourceLoaderFactory, SourceListScan } from './utils/index';
 
+export interface RequestDecoratorFactoryOptions {
+  config: any;
+}
 
 export interface ServerConfig {
   iframe?: "allow" | "deny";
-}
-
-export interface PivotConfig {
-  port?: number;
-  verbose?: boolean;
-  brokerHost?: string;
-  druidHost?: string;
-  timeout?: number;
-  introspectionStrategy?: string;
-
-  pageMustLoadTimeout?: number;
-  sourceListScan?: SourceListScan;
-  sourceListRefreshOnLoad?: boolean;
-  sourceListRefreshInterval?: number;
-  sourceReintrospectOnLoad?: boolean;
-  sourceReintrospectInterval?: number;
-
-  auth?: string;
-  druidRequestDecorator?: string;
-  dataSources?: DataSourceJS[];
-  linkViewConfig?: LinkViewConfigJS;
-  serverConfig?: ServerConfig;
-
-  customization?: Customization;
-}
-
-export interface RequestDecoratorFactoryOptions {
-  config: any;
 }
 
 export interface DruidRequestDecoratorModule {
@@ -132,17 +107,17 @@ if (parsedArgs['version']) {
   process.exit();
 }
 
-const DEFAULT_CONFIG: PivotConfig = {
+if (!parsedArgs['example'] && !parsedArgs['config'] && !parsedArgs['druid'] && !parsedArgs['file']) {
+  printUsage();
+  process.exit();
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
   port: 9090,
   sourceListScan: 'auto',
   sourceListRefreshInterval: 10000,
   dataSources: []
 };
-
-if (!parsedArgs['example'] && !parsedArgs['config'] && !parsedArgs['druid'] && !parsedArgs['file']) {
-  printUsage();
-  process.exit();
-}
 
 var exampleConfig: PivotConfig = null;
 if (parsedArgs['example']) {
@@ -172,7 +147,7 @@ if (configFilePath) {
     errorExit(`Could not load config from '${configFilePath}': ${e.message}`);
   }
 } else {
-  config = DEFAULT_CONFIG;
+  config = DEFAULT_SETTINGS;
 }
 
 // If there is an example config take its dataSources
@@ -250,13 +225,6 @@ export const DATA_SOURCES: DataSource[] = (config.dataSources || []).map((dataSo
   if (typeof dataSourceJS !== 'object') errorExit(`DataSource ${i} is not valid`);
   var dataSourceName = dataSourceJS.name;
   if (typeof dataSourceName !== 'string') errorExit(`DataSource ${i} must have a name`);
-
-  // Convert maxTime into refreshRule if a maxTime exists
-  if (dataSourceJS.maxTime && (typeof dataSourceJS.maxTime === 'string' || (<any>dataSourceJS.maxTime).toISOString)) {
-    dataSourceJS.refreshRule = { rule: 'fixed', time: <any>dataSourceJS.maxTime };
-    console.warn('maxTime found in config, this is deprecated please convert it to a refreshRule like so:', dataSourceJS.refreshRule);
-    delete dataSourceJS.maxTime;
-  }
 
   try {
     return DataSource.fromJS(dataSourceJS);
