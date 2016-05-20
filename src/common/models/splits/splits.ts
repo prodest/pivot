@@ -1,14 +1,14 @@
 import { List } from 'immutable';
 import { Class, Instance, isInstanceOf, immutableArraysEqual } from 'immutable-class';
 import { Timezone, Duration, day, hour } from 'chronoshift';
-import { $, Expression, RefExpression, TimeRange, TimeBucketAction, SortAction, NumberRange } from 'plywood';
+import { $, Expression, RefExpression, TimeRange, TimeBucketAction, SortAction, NumberRange, Range } from 'plywood';
 import { immutableListsEqual } from '../../utils/general/general';
 import { getBestGranularityDuration } from '../../utils/time/time';
 import { Dimension } from '../dimension/dimension';
 import { Filter } from '../filter/filter';
 import { SplitCombine, SplitCombineJS, SplitCombineContext } from '../split-combine/split-combine';
-
-const DEFAULT_GRANULARITY = Duration.fromJS('P1D');
+import { NumberBucketAction } from "plywood";
+import { getDefaultGranularityForKind } from "../granularity/granularity";
 
 function withholdSplit(splits: List<SplitCombine>, split: SplitCombine, allowIndex: number): List<SplitCombine> {
   return <List<SplitCombine>>splits.filter((s, i) => {
@@ -169,19 +169,21 @@ export class Splits implements Instance<SplitsValue, SplitsJS> {
       var splitExpression = splitCombine.expression;
       var splitDimension = dimensions.find(d => splitExpression.equals(d.expression));
       var splitKind = splitDimension.kind;
-      console.log('here', splitDimension);
+
       if (!splitDimension || !(splitKind === 'time' || splitKind === 'number')) return splitCombine;
       changed = true;
 
-      var selctionSet = filter.getLiteralSet(splitExpression);
-      var extent = selctionSet ? selctionSet.extent() : null;
+      var selectionSet = filter.getLiteralSet(splitExpression);
+      var extent = selectionSet ? selectionSet.extent() : null;
 
       if (splitKind === 'time') {
         return splitCombine.changeBucketAction(new TimeBucketAction({
-          duration: TimeRange.isTimeRange(extent) ? getBestGranularityDuration(extent) : DEFAULT_GRANULARITY
+          duration: TimeRange.isTimeRange(extent) ? getBestGranularityDuration(extent) : (getDefaultGranularityForKind('time', splitDimension.bucketedBy) as TimeBucketAction).duration
         }));
       } else if (splitKind === 'number') {
-        throw new Error('nothing here yet');
+        return splitCombine.changeBucketAction(new NumberBucketAction({
+          size: (getDefaultGranularityForKind('number', splitDimension.bucketedBy) as NumberBucketAction).size
+        }));
       }
 
       throw new Error('unknown extent type');
