@@ -2,21 +2,12 @@ import * as path from 'path';
 import * as Q from 'q';
 import * as nopt from 'nopt';
 import { DruidRequestDecorator } from 'plywood-druid-requester';
-import { AppSettings, AppSettingsJS, DataSource, DataSourceJS, Dimension, Measure, LinkViewConfig, LinkViewConfigJS, Customization } from '../common/models/index';
+import { AppSettings, AppSettingsJS, DataSource, DataSourceJS } from '../common/models/index';
 import { dataSourceToYAML } from '../common/utils/yaml-helper/yaml-helper';
+import { ServerSettings } from './models/server-settings/server-settings';
 import { DataSourceManager, dataSourceManagerFactory, loadFileSync, properDruidRequesterFactory, dataSourceLoaderFactory, SourceListScan } from './utils/index';
 
-export interface RequestDecoratorFactoryOptions {
-  config: any;
-}
 
-export interface ServerConfig {
-  iframe?: "allow" | "deny";
-}
-
-export interface DruidRequestDecoratorModule {
-  druidRequestDecorator: (log: (line: string) => void, options: RequestDecoratorFactoryOptions) => DruidRequestDecorator;
-}
 
 function errorExit(message: string): void {
   console.error(message);
@@ -55,11 +46,6 @@ Possible usage:
   -f, --file                   Start pivot on top of this file based data source (must be JSON, CSV, or TSV)
 
   -d, --druid                  The Druid broker node to connect to
-      --introspection-strategy Druid introspection strategy
-          Possible values:
-          * segment-metadata-fallback - (default) use the segmentMetadata and fallback to GET route
-          * segment-metadata-only     - only use the segmentMetadata query
-          * datasource-get            - only use GET /druid/v2/datasources/DATASOURCE route
 `
   );
 }
@@ -80,8 +66,7 @@ function parseArgs() {
 
       "file": String,
 
-      "druid": String,
-      "introspection-strategy": String
+      "druid": String
     },
     {
       "v": ["--verbose"],
@@ -112,7 +97,7 @@ if (!parsedArgs['example'] && !parsedArgs['config'] && !parsedArgs['druid'] && !
   process.exit();
 }
 
-const DEFAULT_SETTINGS: AppSettings = {
+const DEFAULT_SETTINGS: any = {
   port: 9090,
   sourceListScan: 'auto',
   sourceListRefreshInterval: 10000,
@@ -165,16 +150,22 @@ if (file) {
   });
 }
 
+if (parsedArgs['druid']) {
+  config.druidHost = parsedArgs['druid'];
+}
+
+var serverSettings = ServerSettings.fromJS(config);
+var appSettings = AppSettings.fromJS(config);
+
+export const SERVER_SETTINGS = serverSettings;
+export const APP_SETTINGS = appSettings;
+
+
 export const PRINT_CONFIG = Boolean(parsedArgs['print-config']);
 export const START_SERVER = !PRINT_CONFIG;
 export const VERBOSE = Boolean(parsedArgs['verbose'] || config.verbose);
 
-export const PORT = parseInt(parsedArgs['port'] || config.port, 10) || 9090;
-export const SERVER_ROOT: string = (config as any).serverRoot;
-export const DRUID_HOST = parsedArgs['druid'] || config.brokerHost || config.druidHost;
-export const TIMEOUT = parseInt(<any>config.timeout, 10) || 30000;
-
-export const INTROSPECTION_STRATEGY = String(parsedArgs["introspection-strategy"] || config.introspectionStrategy || 'segment-metadata-fallback');
+export const INTROSPECTION_STRATEGY = String(config.introspectionStrategy || 'segment-metadata-fallback');
 export const PAGE_MUST_LOAD_TIMEOUT = START_SERVER ? (parseInt(<any>config.pageMustLoadTimeout, 10) || 800) : 0;
 export const SOURCE_LIST_SCAN: SourceListScan = config.sourceListScan;
 
@@ -233,10 +224,6 @@ export const DATA_SOURCES: DataSource[] = (config.dataSources || []).map((dataSo
     return;
   }
 });
-
-export const LINK_VIEW_CONFIG = config.linkViewConfig || null;
-export const SERVER_CONFIG = config.serverConfig || {};
-export const CUSTOMIZATION = config.customization ? Customization.fromJS(config.customization) : null;
 
 
 var druidRequester: Requester.PlywoodRequester<any> = null;
