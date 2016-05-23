@@ -1,0 +1,13 @@
+@import '../../imports';
+
+$nub-size: 16px;
+
+.range-handle {
+  display: inline-block;
+  width: $nub-size;
+  height: $nub-size;
+  background: $white;
+  border-radius: 50%;
+  border: 1px solid $background-dark;
+  z-index: 2;
+}

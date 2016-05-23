@@ -10,7 +10,7 @@ interface DefaultLookup {
 
 const defaults: Lookup<DefaultLookup> = {
   time: {
-    granularities: ['PT1M', 'PT5M', 'PT1H', 'PT6H', 'P1D', 'P1W', 'P1M', 'P1Y'].map(granularityFromJS),
+    granularities: ['PT1M', 'PT1H', 'P1D', 'P1W', 'P1M', 'P1Y'].map(granularityFromJS),
     granularity: granularityFromJS('P1D')
   },
 
